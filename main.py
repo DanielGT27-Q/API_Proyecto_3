@@ -46,25 +46,24 @@ def crear_resena(hotel_id: int, datos: dict):
     if not (1 <= int(calificacion) <= 5):
         raise HTTPException(status_code=400, detail="La calificacion debe estar entre 1 y 5")
 
-    # Verificar que no exista ya una reseña para esa reserva (usando nombres reales)
+    # Verificar que no exista ya una reseña para esa reserva
     existente = resenas.find_one({"id_reserva": reserva_id, "id_cliente": cliente_id})
     if existente:
         raise HTTPException(status_code=409, detail="Ya existe una reseña para esta reserva")
 
-    # Documento con los nombres REALES de MongoDB
     doc = {
-        "id_hotel": hotel_id,                    # antes: hotel_id
-        "id_cliente": cliente_id,                # antes: cliente_id
-        "id_reserva": reserva_id,                # antes: reserva_id
-        "calificación": int(calificacion),       # antes: calificacion (con acento)
+        "id_hotel": hotel_id,
+        "id_cliente": cliente_id,
+        "id_reserva": reserva_id,
+        "calificación": int(calificacion),
         "texto": texto,
         "fecha_creacion": datetime.now(),
         "fecha_edicion": None,
-        "estado": "publicada",                   # antes: eliminada: False
+        "estado": "publicada",
         "destacada": False,
-        "votos_util": 0,                         # antes: votos_utilidad
+        "votos_util": 0,
         "votantes": [],
-        "respuesta": None                        # antes: respuesta_admin
+        "respuesta": None
     }
 
     resenas.insert_one(doc)
@@ -88,7 +87,7 @@ def editar_resena(reserva_id: int, datos: dict):
     if calificacion:
         if not (1 <= int(calificacion) <= 5):
             raise HTTPException(status_code=400, detail="La calificacion debe estar entre 1 y 5")
-        cambios["calificación"] = int(calificacion)  # con acento
+        cambios["calificación"] = int(calificacion)
     if texto:
         cambios["texto"] = texto
 
@@ -118,26 +117,14 @@ def eliminar_resena_cliente(reserva_id: int, cliente_id: int):
 @app.get("/hoteles/{hotel_id}/resenas")
 def get_resenas_hotel(hotel_id: int, orden: str = "fecha", pagina: int = 1, por_pagina: int = 10):
     skip = (pagina - 1) * por_pagina
-    
-    
+
     if orden == "utilidad":
         sort_field = "votos_util"
     else:
-        
         sort_field = "fecha_creacion"
-    
+
     pipeline = [
         {"$match": {"id_hotel": hotel_id, "estado": "publicada"}},
-
-        {"$addFields": {
-            "fecha_date": {
-                "$cond": {
-                    "if": {"$isString": "$fecha_creacion"},
-                    "then": {"$dateFromString": {"dateString": "$fecha_creacion"}},
-                    "else": "$fecha_creacion"
-                }
-            }
-        }},
         {"$sort": {"destacada": -1, sort_field: -1}},
         {"$skip": skip},
         {"$limit": por_pagina},
@@ -154,30 +141,24 @@ def get_resenas_hotel(hotel_id: int, orden: str = "fecha", pagina: int = 1, por_
             "respuesta": 1
         }}
     ]
-    
+
     resultado = list(resenas.aggregate(pipeline))
     total = resenas.count_documents({"id_hotel": hotel_id, "estado": "publicada"})
-    
-    
+
     resenas_formateadas = []
     for r in resultado:
-        
-        fecha_creacion = r.get("fecha_creacion")
-        if isinstance(fecha_creacion, datetime):
-            fecha_creacion = fecha_creacion.isoformat()
-        
         resenas_formateadas.append({
             "reserva_id": r.get("id_reserva"),
             "cliente_id": r.get("id_cliente"),
             "calificacion": r.get("calificación"),
             "texto": r.get("texto"),
-            "fecha_creacion": fecha_creacion,
+            "fecha_creacion": r.get("fecha_creacion"),
             "fecha_edicion": r.get("fecha_edicion"),
             "votos_utilidad": r.get("votos_util", 0),
             "destacada": r.get("destacada", False),
             "respuesta_admin": r.get("respuesta")
         })
-    
+
     return {
         "total": total,
         "pagina": pagina,
@@ -223,7 +204,7 @@ def historial_resenas(cliente_id: int, orden: str = "fecha"):
         sort_field = "id_hotel"
 
     pipeline = [
-        {"$match": {"id_cliente": cliente_id}},  # antes: cliente_id
+        {"$match": {"id_cliente": cliente_id}},
         {"$sort": {sort_field: -1}},
         {"$project": {
             "_id": 0,
@@ -240,7 +221,6 @@ def historial_resenas(cliente_id: int, orden: str = "fecha"):
 
     resultado = list(resenas.aggregate(pipeline))
     
-    # Convertir al formato esperado
     resenas_formateadas = []
     for r in resultado:
         resenas_formateadas.append({
@@ -326,7 +306,6 @@ def destacar_resena(hotel_id: int, reserva_id: int):
 # ─────────────────────────────────────────
 @app.get("/consultas/top-hoteles")
 def top_hoteles(fecha_inicio: str, fecha_fin: str):
-    # Convertir fechas string a datetime si es necesario
     try:
         fecha_inicio_dt = datetime.strptime(fecha_inicio, "%Y-%m-%d")
         fecha_fin_dt = datetime.strptime(fecha_fin, "%Y-%m-%d")
@@ -339,8 +318,8 @@ def top_hoteles(fecha_inicio: str, fecha_fin: str):
             "fecha_creacion": {"$gte": fecha_inicio_dt, "$lte": fecha_fin_dt}
         }},
         {"$group": {
-            "_id": "$id_hotel",  # antes: hotel_id
-            "calificacion_promedio": {"$avg": "$calificación"},  # con acento
+            "_id": "$id_hotel",
+            "calificacion_promedio": {"$avg": "$calificación"},
             "total_resenas": {"$sum": 1}
         }},
         {"$sort": {"calificacion_promedio": -1}},
@@ -365,7 +344,7 @@ def evolucion_reputacion(hotel_id: int, anio: int):
     
     pipeline = [
         {"$match": {
-            "id_hotel": hotel_id,  # antes: hotel_id
+            "id_hotel": hotel_id,
             "estado": "publicada",
             "fecha_creacion": {
                 "$gte": start_date,
@@ -402,8 +381,6 @@ def evolucion_reputacion(hotel_id: int, anio: int):
 # ─────────────────────────────────────────
 @app.get("/consultas/comparativo-ciudad")
 def comparativo_ciudad(ciudad: str, hotel_ids: Optional[str] = None):
-    # Este endpoint requiere integración con Oracle para obtener hoteles por ciudad
-    # Por ahora, si se pasan hotel_ids, filtra por ellos
     match_filter = {"estado": "publicada"}
     
     if hotel_ids:
