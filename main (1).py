@@ -59,7 +59,7 @@ def crear_resena(hotel_id: int, datos: dict):
         "reserva_id":   reserva_id,
         "calificacion": int(calificacion),
         "texto":        texto,
-        "fecha_creacion": datetime.now().isoformat(),
+        "fecha_creacion": datetime.now(),
         "fecha_edicion":  None,
         "eliminada":    False,
         "destacada":    False,
