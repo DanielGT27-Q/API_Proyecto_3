@@ -118,14 +118,26 @@ def eliminar_resena_cliente(reserva_id: int, cliente_id: int):
 @app.get("/hoteles/{hotel_id}/resenas")
 def get_resenas_hotel(hotel_id: int, orden: str = "fecha", pagina: int = 1, por_pagina: int = 10):
     skip = (pagina - 1) * por_pagina
-
+    
+    
     if orden == "utilidad":
-        sort_field = "votos_util"           # antes: votos_utilidad
+        sort_field = "votos_util"
     else:
+        
         sort_field = "fecha_creacion"
-
+    
     pipeline = [
-        {"$match": {"id_hotel": hotel_id, "estado": "publicada"}},  # antes: hotel_id, eliminada=False
+        {"$match": {"id_hotel": hotel_id, "estado": "publicada"}},
+
+        {"$addFields": {
+            "fecha_date": {
+                "$cond": {
+                    "if": {"$isString": "$fecha_creacion"},
+                    "then": {"$dateFromString": {"dateString": "$fecha_creacion"}},
+                    "else": "$fecha_creacion"
+                }
+            }
+        }},
         {"$sort": {"destacada": -1, sort_field: -1}},
         {"$skip": skip},
         {"$limit": por_pagina},
@@ -142,25 +154,30 @@ def get_resenas_hotel(hotel_id: int, orden: str = "fecha", pagina: int = 1, por_
             "respuesta": 1
         }}
     ]
-
+    
     resultado = list(resenas.aggregate(pipeline))
     total = resenas.count_documents({"id_hotel": hotel_id, "estado": "publicada"})
-
-    # Convertir al formato esperado por el frontend
+    
+    
     resenas_formateadas = []
     for r in resultado:
+        
+        fecha_creacion = r.get("fecha_creacion")
+        if isinstance(fecha_creacion, datetime):
+            fecha_creacion = fecha_creacion.isoformat()
+        
         resenas_formateadas.append({
             "reserva_id": r.get("id_reserva"),
             "cliente_id": r.get("id_cliente"),
             "calificacion": r.get("calificación"),
             "texto": r.get("texto"),
-            "fecha_creacion": r.get("fecha_creacion"),
+            "fecha_creacion": fecha_creacion,
             "fecha_edicion": r.get("fecha_edicion"),
             "votos_utilidad": r.get("votos_util", 0),
             "destacada": r.get("destacada", False),
             "respuesta_admin": r.get("respuesta")
         })
-
+    
     return {
         "total": total,
         "pagina": pagina,
