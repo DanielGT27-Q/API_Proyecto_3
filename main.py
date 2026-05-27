@@ -351,22 +351,12 @@ def evolucion_reputacion(hotel_id: int, anio: int):
                 "$lte": end_date
             }
         }},
-        # Convertir calificacion a número si es necesario
-        {"$addFields": {
-            "calificacion_num": {
-                "$cond": {
-                    "if": {"$isString": "$calificacion"},
-                    "then": {"$toDouble": "$calificacion"},
-                    "else": "$calificacion"
-                }
-            }
-        }},
         {"$group": {
             "_id": {
                 "year": {"$year": "$fecha_creacion"},
                 "month": {"$month": "$fecha_creacion"}
             },
-            "calificacion_promedio": {"$avg": "$calificacion_num"},
+            "calificacion_promedio": {"$avg": "$calificacion"},
             "total_resenas": {"$sum": 1}
         }},
         {"$sort": {"_id.year": 1, "_id.month": 1}},
@@ -383,7 +373,9 @@ def evolucion_reputacion(hotel_id: int, anio: int):
             "total_resenas": 1
         }}
     ]
-    return list(resenas.aggregate(pipeline))
+    
+    resultado = list(resenas.aggregate(pipeline))
+    return resultado
 
 # ─────────────────────────────────────────
 # RFC3 – PERFIL COMPARATIVO DE HOTELES POR CIUDAD
