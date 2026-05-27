@@ -380,47 +380,23 @@ def evolucion_reputacion(hotel_id: int, anio: int):
 # ─────────────────────────────────────────
 # RFC3 – PERFIL COMPARATIVO DE HOTELES POR CIUDAD
 # ─────────────────────────────────────────
-@app.get("/consultas/comparativo-ciudad")
-def comparativo_ciudad(ciudad: str, hotel_ids: Optional[str] = None):
-    match_filter = {"estado": "publicada"}
+
+@app.get("/hoteles/por-ciudad")
+def hoteles_por_ciudad(ciudad: str):
+    # Conexión a Oracle
+    import oracledb
     
-    if hotel_ids:
-        ids_list = [int(x) for x in hotel_ids.split(",")]
-        match_filter["id_hotel"] = {"$in": ids_list}
+    conn = oracledb.connect(
+        user=os.environ["ORACLE_USER"],
+        password=os.environ["ORACLE_PASSWORD"],
+        dsn=os.environ["ORACLE_DSN"]
+    )
     
-    pipeline = [
-        {"$match": match_filter},
-        {"$group": {
-            "_id": "$id_hotel",
-            "calificacion_promedio": {"$avg": "$calificación"},
-            "total_resenas": {"$sum": 1},
-            "con_respuesta": {
-                "$sum": {"$cond": [{"$ne": ["$respuesta", None]}, 1, 0]}
-            },
-            "destacadas": {
-                "$sum": {"$cond": ["$destacada", 1, 0]}
-            }
-        }},
-        {"$project": {
-            "_id": 0,
-            "hotel_id": "$_id",
-            "calificacion_promedio": {"$round": ["$calificacion_promedio", 2]},
-            "total_resenas": 1,
-            "porcentaje_con_respuesta": {
-                "$cond": [
-                    {"$eq": ["$total_resenas", 0]},
-                    0,
-                    {"$round": [{"$multiply": [{"$divide": ["$con_respuesta", "$total_resenas"]}, 100]}, 1]}
-                ]
-            },
-            "porcentaje_destacadas": {
-                "$cond": [
-                    {"$eq": ["$total_resenas", 0]},
-                    0,
-                    {"$round": [{"$multiply": [{"$divide": ["$destacadas", "$total_resenas"]}, 100]}, 1]}
-                ]
-            }
-        }},
-        {"$sort": {"calificacion_promedio": -1}}
-    ]
-    return list(resenas.aggregate(pipeline))
+    cursor = conn.cursor()
+    cursor.execute("SELECT HOTEL_ID FROM HOTELES_CIUDAD WHERE CIUDAD = :ciudad", {"ciudad": ciudad})
+    hoteles = [row[0] for row in cursor.fetchall()]
+    
+    cursor.close()
+    conn.close()
+    
+    return {"hoteles": hoteles}
