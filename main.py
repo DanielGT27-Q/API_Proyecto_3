@@ -319,7 +319,7 @@ def top_hoteles(fecha_inicio: str, fecha_fin: str):
         }},
         {"$group": {
             "_id": "$id_hotel",
-            "calificacion_promedio": {"$avg": "$calificación"},
+            "calificacion_promedio": {"$avg": "$calificacion"},
             "total_resenas": {"$sum": 1}
         }},
         {"$sort": {"calificacion_promedio": -1}},
